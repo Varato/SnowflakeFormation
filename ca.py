@@ -9,7 +9,7 @@ plane into hexagonal cells. Each cell has six nearest neighbors. The state varia
     - A cell that is neither frozen nor boundary is called nonreceptive. 
 The union of frozen and boundary cells are called receptive cells.
 
-Beside s(t, z), there are two more variables for each sell:
+Beside s(t, z), there are two more variables for each cell:
     - u(t, z): represents the amount of water that participates in diffusion
     - v(t, z): represents the amount of water that doesn't participate in diffusion
 
@@ -105,7 +105,7 @@ class ReiterCellularAutomata:
         self.beta = beta
         self.gamma = gamma
 
-        # 1. +2 to give the geid edges around so that every cell has 6 neighbors
+        # 1. +2 to give the grid edges around so that every cell has 6 neighbors
         self.s = np.ones((grid_size + 2, grid_size + 2)) * beta
         self.s[grid_size//2 + 1, grid_size//2 + 1] = 1.0
 
