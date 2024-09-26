@@ -8,34 +8,13 @@ plane into hexagonal cells. Each cell has six nearest neighbors. The state varia
     - If a cell is not frozen itself but at least one of the nearest neighbors is frozen, the cell is called a boundary cell. 
     - A cell that is neither frozen nor boundary is called nonreceptive. 
 The union of frozen and boundary cells are called receptive cells.
-
-Beside s(t, z), there are two more variables for each cell:
-    - u(t, z): represents the amount of water that participates in diffusion
-    - v(t, z): represents the amount of water that doesn't participate in diffusion
-
-There are three parameters for the system:
-    - beta: represents a fixed constant background vapor level
-    - alpha: the diffusion constant.
-    - gamma: the amount of vapor added in each simulation step
-
-Updating rule of the cellular automata:
-
-1. Constant addition. For any receptive cell z:
-    v(t+1, z) = v(t, z) + gamma
-
-2. Diffusion. For any cell z:
-    u(t+1, z) = u(t, z) + alpha/2 * [
-        1/6 * (sum of u(t, z') for all neighbors z' of z)
-      - u(t, z) 
-    ]
-
-3. Updating s(z):
-    s(t+1, z) = u(t+1, z) + v(t+1, z)
 """
 
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+from matplotlib.animation import FuncAnimation
 
 
 # First implement the hexegon grid function
@@ -52,7 +31,7 @@ def get_hexegon_center(r: int, c: int, L: float):
     
     The x axis is torward right.
     The y axis is torward bottom.
-    The left top hexegon is indexed by r=0, c =0, coordinate is (0, 0).
+    The left top hexegon is indexed by r=0, c=0, coordinate is (0, 0).
     The one below the left top hexegon is index by r=1, c=0, coordinate is (0, sqrt(3)L)
     """
     x = c * 3/2 * L
@@ -107,7 +86,8 @@ class ReiterCellularAutomata:
 
         # 1. +2 to give the grid edges around so that every cell has 6 neighbors
         self.s = np.ones((grid_size + 2, grid_size + 2)) * beta
-        self.s[grid_size//2 + 1, grid_size//2 + 1] = 1.0
+        self.s[grid_size//2+1, grid_size//2+1] = 1.0
+        # self.s[5*grid_size//9, 5*grid_size//9] = 1.0
 
         self.xmin, self.ymax = get_hexegon_center(1, 1, 1)
         self.xmax, self.ymin = get_hexegon_center(grid_size, grid_size, 1)
@@ -179,25 +159,24 @@ class ReiterCellularAutomata:
         rep = np.zeros([self.grid_size + 2, self.grid_size + 2])
         nrep = np.zeros([self.grid_size + 2, self.grid_size + 2])
 
+        # adding constant for receptive cells
+        rep[1:-1, 1:-1][receptive] = self.s[1:-1, 1:-1][receptive] + self.gamma
+
+        # diffusion
         nrep[0, :] = self.beta
         nrep[-1, :] = self.beta
         nrep[:, 0] = self.beta
-        nrep[:, -1] = self.beta
-
-        rep[1:-1, 1:-1][receptive] = self.s[1:-1, 1:-1][receptive] + self.gamma
+        nrep[:, -1] = self.beta        
         nrep[1:-1, 1:-1][~receptive] = self.s[1:-1, 1:-1][~receptive]
+        nrep[1:-1, 1:-1] = (1 - 0.5*self.alpha)*nrep[1:-1, 1:-1] + 0.5*self.alpha*self.compute_mean(nrep)
 
-        self.s[1:-1, 1:-1] = rep[1:-1, 1:-1] + self.compute_mean(nrep)
+        self.s[1:-1, 1:-1] = rep[1:-1, 1:-1] + nrep[1:-1, 1:-1]
 
     def diameter(self):
         frozen_grid = self.frozen()
         return np.sum(frozen_grid[:, self.grid_size//2])
     
     def draw(self, ax: plt.Axes):
-
-        ca_max = 2.0
-        ca_min = self.beta
-
         ax.set_aspect('equal')
         ax.set_ylim([self.ymin, self.ymax])
         ax.set_xlim([self.xmin, self.xmax])
@@ -205,54 +184,80 @@ class ReiterCellularAutomata:
         for r in range(N+2):
             for c in range(N+2):
                 x, y = get_hexegon_center(r, c, 1)
-                s = np.clip(self.s[r, c], ca_min, ca_max)
+                s = self.s[r, c]
                 # normalize the s value to [0, 1]
-                s = (s - ca_min) / (ca_max - ca_min) 
-                s = s**0.5
                 vertices = get_hexegon_vertices(x, y, 1)
                 # draw the polygon grid by ax.fill
-                ax.fill(*zip(*vertices), facecolor=plt.cm.gray(s), edgecolor=plt.cm.gray(s))
+                color = self.get_color(s)
+                ax.fill(*zip(*vertices), facecolor=color, edgecolor=color)
                 # fill the hexegon with gray color mapped by the value s
         # ax.text(0.5*(self.xmax - self.xmin), -5, 
         #         f'a={self.alpha:.2f}, b={self.beta:f}, g={self.gamma:f}', 
         #         ha='center', va='center', fontsize=10)
         # ax.text(0.5*(self.xmax - self.xmin), -10, f'diameter = {self.diameter():d}', ha='center', va='center', fontsize=10)
-    
+
+    def draw_fast(self, ax: plt.Axes):
+       
+        R, C = np.meshgrid(np.arange(0, self.grid_size+2), np.arange(0, self.grid_size+2), indexing="ij")
+        X = C * 1.5
+        Y = R * math.sqrt(3) + (C % 2) * math.sqrt(3)/2
+        ax.scatter(X.flatten(), -Y.flatten(), c=self.water_color_map(self.s.flatten()), s=12)
+
+    def water_color_map(self, x:np.ndarray, a:float=0.6):
+        sigmoid = 0.6/(1+np.exp(-(x-1)*a)) #(n,)
+        # y = 0.8*x
+        # y[x>=1] = sigmoid[x>=1]
+        frozen_colors = plt.cm.ocean_r(sigmoid) #(n, 4)
+        nonfrozen_colors = plt.cm.gray(x*0.8)  #(n, 4)
+
+        cm = np.zeros([x.shape[0], 4])
+        cm[x>=1] = frozen_colors[x>=1]
+        cm[x<1] = nonfrozen_colors[x<1]
+        return cm
 
 
 if __name__ == "__main__":
-    nrows = 2
-    ncols = 2
 
-    alpha = np.ones([nrows, ncols]) * 1.0
-    beta =  np.array([[0.13, 0.5], [0.9, 0.7]])
-    gamma = np.array([[0.01, 0.001], [0.001, 0.001]])
+    alpha = 1
 
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, figsize=(8.6,10))
-    plt.subplots_adjust(wspace=0, hspace=0)
+    # 1
+    beta = 0.9
+    gamma = 0.05
 
-    N = 61
-    ca_matrix = [[ReiterCellularAutomata(N, alpha[i, j], beta[i, j], gamma[i, j]) for j in range(ncols)] for i in range(nrows)]
-    for t in range(400):
-        for i in range(nrows):
-            for j in range(ncols):
-                print("t={} ca[{}, {}] updating, s lim: [{:.3f}, {:.3f}] ".format(t, i, j, np.min(ca_matrix[i][j].s), np.max(ca_matrix[i][j].s)))
-                ca_matrix[i][j].update()
-                ca_matrix[i][j].draw(axes[i, j])
-        plt.savefig(f'anims/ca_{t:03d}.png', dpi=200, transparent=True)
-        print('saved at {}'.format(f'anims/ca_{t:03d}.png'))
+    #2
+    # beta = 0.4
+    # gamma = 0.001
+
+    N = 151
+    ca = ReiterCellularAutomata(N, alpha, beta, gamma)
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 8))
+    plt.subplots_adjust(wspace=0, hspace=0, top=1, bottom=0, right=1,left=0)
+
+
+    # def run_ca(t):
+    #     ca.draw_fast(ax)
+    #     print("t={}, s lim: [{:.3f}, {:.3f}] ".format(t, np.min(ca.s), np.max(ca.s)))
+    #     ca.update()
+
+    # anim = FuncAnimation(fig, func=run_ca, frames=range(800), interval=200, repeat=False, cache_frame_data=False)
     # plt.show()
-    # draw a N by N hexegon grid
 
-    # r = 3
-    # c = 5
-    # neighbors = get_neighbors(r, c)
-    # x, y = get_hexegon_center(r, c, 1)
-    # ax.plot(x, y, 'bo')
-    # for rr, cc in neighbors:
-    #     x, y = get_hexegon_center(rr, cc, 1)
-    #     ax.plot(x, y, 'ro')
+    for t in range(1, 70+1):
+        save_name = f'anims/flake_{t:03d}.png'
+        if not os.path.isfile(save_name):
+            plt.cla() # important to be fast
+            ax.set_aspect('equal')
+            ax.set_ylim([ca.ymin, ca.ymax])
+            ax.set_xlim([ca.xmin, ca.xmax])
+            ax.axis('off')   
+            ca.draw_fast(ax)
+            plt.savefig(save_name, dpi=120, transparent=True)
+            print('saved at {}'.format(save_name))
+        print("t={}, s lim: [{:.3f}, {:.3f}] ".format(t, np.min(ca.s), np.max(ca.s)))
+        ca.update()
 
-    # plt.savefig('snowflake.png', dpi=200, transparent=True)            
+  
+        
 
     
