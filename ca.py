@@ -119,20 +119,37 @@ class ReiterCellularAutomata:
     def compute_mean(self, u: np.ndarray) -> np.ndarray:
         # u: N+2 by N+2
         # returns: N x N
+
+        # 1. find the eight neighbors (including diagonal ones) in the square grid
         u_u = u[:-2, 1:-1]
         u_d = u[2:,  1:-1] 
         u_l = u[1:-1, :-2]
         u_r = u[1:-1,  2:]
 
-        u_ld = np.zeros((self.grid_size, self.grid_size))
-        u_ld[:, 0::2] = u[2:,  0:-2:2]
-        u_ld[:, 1::2] = u[:-2, 1:-2:2]
+        u_lu = u[:-2, :-2]
+        u_ru = u[:-2, 2:]
+        u_ld = u[2:, :-2]
+        u_rd = u[2:, 2:]
 
-        u_rd = np.zeros((self.grid_size, self.grid_size))
-        u_rd[: ,0::2] = u[2:,  2::2] # for odd  columns' right diagonal neighbors
-        u_rd[: ,1::2] = u[:-2, 3::2] # for even  columns' right diagonal neighbors
+        # 2. find the six neighbors in the hexagon grid, using the eight neighbors in the square grid
+        u1 = u_u
+        u2 = u_d
+        u3 = u_l
+        u4 = u_r
+    
+        u5 = np.empty((self.grid_size, self.grid_size))
+        u6 = np.empty((self.grid_size, self.grid_size))
 
-        return (u_u + u_d + u_l + u_r + u_ld + u_rd) / 6.0
+        # odd columns in the (N+2)x(N+2) grid  = even columns in the NxN grid
+        u5[:, 0::2] = u_ld[:, 0::2]
+        u6[:, 0::2] = u_rd[:, 0::2]
+
+        # even columns in the (N+2)x(N+2) grid  = even columns in the NxN grid
+        u5[:, 1::2] = u_lu[:, 1::2]
+        u6[:, 1::2] = u_ru[:, 1::2]
+
+        return (u1 + u2 + u3 + u4 + u5 + u6) / 6.0
+        
     
     def compute_mean_loop(self, u: np.ndarray) -> np.ndarray:
         # u: N+2 by N+2
