@@ -1,10 +1,16 @@
+# Snowflakes Formation Simulation by Cellular Automata
 
-To run the simulation:
+### To run the simulation:
 
 '''bash
 python ca.py
 '''
 
-example:
+### Examples
 
-![](./ca_175.png)
+
+<p float="left">
+  <img src="./examples/cond1_final.png" width="200" />
+  <img src="./examples/cond4_final.png" width="200" /> 
+  <img src="./examples/cond3_final.png" width="200" />
+</p>
