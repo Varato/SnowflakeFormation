@@ -100,42 +100,42 @@ def contrast(s, a: float=1):
     return y, cm
 
 def find_six_neighbors(s: np.ndarray):
-        """
-        Parameters
-        ----------
-            s: (N+2) x (N+2) array
+    """
+    Parameters
+    ----------
+        s: (N+2) x (N+2) array
 
-        Returns
-        -------
-            s1, s2, s3, s4, s5, s6: NxN array
-        """
-        # 1. find the eight neighbors (including diagonal ones) in a square grid
-        s_u = s[:-2, 1:-1]
-        s_d = s[2:,  1:-1] 
-        s_l = s[1:-1, :-2]
-        s_r = s[1:-1,  2:]
+    Returns
+    -------
+        s1, s2, s3, s4, s5, s6: NxN array
+    """
+    # 1. find the eight neighbors (including diagonal ones) in a square grid
+    s_u = s[:-2, 1:-1]
+    s_d = s[2:,  1:-1] 
+    s_l = s[1:-1, :-2]
+    s_r = s[1:-1,  2:]
 
-        s_lu = s[:-2, :-2]
-        s_ru = s[:-2, 2:]
-        s_ld = s[2:, :-2]
-        s_rd = s[2:, 2:]
+    s_lu = s[:-2, :-2]
+    s_ru = s[:-2, 2:]
+    s_ld = s[2:, :-2]
+    s_rd = s[2:, 2:]
 
-        # 2. construct the 6 neighbors of a hexagon grid
-        s1 = s_u
-        s2 = s_d
-        s3 = s_l
-        s4 = s_r
+    # 2. construct the 6 neighbors of a hexagon grid
+    s1 = s_u
+    s2 = s_d
+    s3 = s_l
+    s4 = s_r
 
-        s5 = np.empty([s.shape[0]-2, s.shape[1]-2])
-        s6 = np.empty([s.shape[0]-2, s.shape[1]-2])
+    s5 = np.empty([s.shape[0]-2, s.shape[1]-2])
+    s6 = np.empty([s.shape[0]-2, s.shape[1]-2])
 
-        s5[:, 0::2] = s_ld[:, 0::2]
-        s6[:, 0::2] = s_rd[:, 0::2]
+    s5[:, 0::2] = s_ld[:, 0::2]
+    s6[:, 0::2] = s_rd[:, 0::2]
 
-        s5[:, 1::2] = s_lu[:, 1::2]
-        s6[:, 1::2] = s_ru[:, 1::2]
+    s5[:, 1::2] = s_lu[:, 1::2]
+    s6[:, 1::2] = s_ru[:, 1::2]
 
-        return (s1, s2, s3, s4, s5, s6)
+    return (s1, s2, s3, s4, s5, s6)
 
 
 class ReiterCellularAutomata:
@@ -147,8 +147,9 @@ class ReiterCellularAutomata:
 
         # 1. +2 to give the grid edges around so that every cell has 6 neighbors
         self.s = np.ones((grid_size + 2, grid_size + 2)) * beta
-        self.s[grid_size//2+1, grid_size//2+1] = 1.0
-        # self.s[5*grid_size//9, 5*grid_size//9] = 1.0
+        # self.s[grid_size//2+1, grid_size//2+1] = 1.0
+        self.s[4*grid_size//9, 4*grid_size//9] = 1.0
+        self.s[5*grid_size//9, 5*grid_size//9] = 1.0
 
         self.xmin, self.ymax = get_hexegon_center(1, 1, 1)
         self.xmax, self.ymin = get_hexegon_center(grid_size, grid_size, 1)
@@ -261,19 +262,25 @@ if __name__ == "__main__":
 
     alpha = 1
 
-    # 1
-    # beta = 0.4
-    # gamma = 0.001
-    # a = 0.7
+    1
+    beta = 0.4
+    gamma = 0.001
+    a = 0.7
 
     # 2
-    beta = 0.9
-    gamma = 0.0001
-    a = 1.6
+    # beta = 0.9
+    # gamma = 0.0001
+    # a = 1.3
 
     # 3
     # beta = 0.7
     # gamma = 0.01
+    # a=0.4
+
+    # 4
+    # beta = 0.3
+    # gamma = 0.05
+    # a = 0.02
 
     ca = ReiterCellularAutomata(151, alpha, beta, gamma)
 
@@ -289,7 +296,7 @@ if __name__ == "__main__":
     # plt.show()
 
     
-    N = 100
+    N = 800
     for t in range(1, N+1):
         save_name = f'anims/flake_{t:03d}.png'
         if not os.path.isfile(save_name):
@@ -300,6 +307,6 @@ if __name__ == "__main__":
             ax.axis('off')   
             ca.draw_fast(ax, a=a)
             plt.savefig(save_name, dpi=120, transparent=True)
-            # print('saved at {}'.format(save_name))
+            print('saved at {}'.format(save_name))
         print("t={}, s lim: [{:.3f}, {:.3f}]  boundary: {}".format(t, np.min(ca.s), np.max(ca.s), ca.edge_touched()))
         ca.update()
