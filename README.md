@@ -2,9 +2,9 @@
 
 ### To run the simulation:
 
-'''bash
+```bash
 python ca.py
-'''
+```
 
 ### Examples
 
